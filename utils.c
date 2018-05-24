@@ -32,6 +32,11 @@ void __noreturn error_exit(CHAR16 *message, EFI_STATUS status)
 	unreachable();
 }
 
+VOID sleep(int32_t sec)
+{
+	uefi_call_wrapper(BS->Stall, 1, sec * 1000 * 1000);
+}
+
 VOID *mmalloc(UINTN bytes)
 {
 	EFI_STATUS status;
