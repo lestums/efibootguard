@@ -14,8 +14,28 @@
 
 #include <syspart.h>
 #include <utils.h>
+#include <envdata.h>
 
 #define MAX_INFO_SIZE 1024
+
+EFI_STATUS open_cfg_file(EFI_FILE_HANDLE root, EFI_FILE_HANDLE *fh,
+			 UINT64 mode)
+{
+	return uefi_call_wrapper(root->Open, 5, root, fh, ENV_FILE_NAME, mode,
+				 EFI_FILE_ARCHIVE | EFI_FILE_HIDDEN |
+				 EFI_FILE_SYSTEM);
+}
+
+EFI_STATUS close_cfg_file(EFI_FILE_HANDLE root, EFI_FILE_HANDLE fh)
+{
+	return uefi_call_wrapper(root->Close, 1, fh);
+}
+
+EFI_STATUS read_cfg_file(EFI_FILE_HANDLE fh, VOID *buffer)
+{
+	UINTN readlen = sizeof(BG_ENVDATA);
+	return uefi_call_wrapper(fh->Read, 3, fh, &readlen, buffer);
+}
 
 EFI_STATUS enumerate_cfg_parts(EFI_FILE_HANDLE *roots, UINTN *numHandles)
 {
@@ -32,16 +52,13 @@ EFI_STATUS enumerate_cfg_parts(EFI_FILE_HANDLE *roots, UINTN *numHandles)
 		if (!volumes[index].root) {
 			continue;
 		}
-		status = uefi_call_wrapper(
-		    volumes[index].root->Open, 5, volumes[index].root, &fh,
-		    ENV_FILE_NAME, EFI_FILE_MODE_WRITE | EFI_FILE_MODE_READ,
-		    EFI_FILE_ARCHIVE | EFI_FILE_HIDDEN | EFI_FILE_SYSTEM);
+		status = open_cfg_file(volumes[index].root, &fh,
+				       EFI_FILE_MODE_READ);
 		if (status == EFI_SUCCESS) {
 			Print(L"Config file found on volume %d.\n", index);
 			roots[rootCount] = volumes[index].root;
 			rootCount++;
-			status = uefi_call_wrapper(volumes[index].root->Close,
-						   1, fh);
+			status = close_cfg_file(volumes[index].root, fh);
 			if (EFI_ERROR(status)) {
 				Print(L"Could not close config file on "
 				      L"partition %d.\n",

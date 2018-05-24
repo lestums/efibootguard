@@ -21,6 +21,10 @@
 #include <efipciio.h>
 #include "bootguard.h"
 
+EFI_STATUS open_cfg_file(EFI_FILE_HANDLE root, EFI_FILE_HANDLE *fh,
+			 UINT64 mode);
+EFI_STATUS close_cfg_file(EFI_FILE_HANDLE root, EFI_FILE_HANDLE fh);
+EFI_STATUS read_cfg_file(EFI_FILE_HANDLE fh, VOID *buffer);
 EFI_STATUS enumerate_cfg_parts(EFI_FILE_HANDLE *roots, UINTN *maxHandles);
 
 #endif // __H_SYSPART__
