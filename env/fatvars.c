@@ -25,6 +25,7 @@ BG_STATUS save_current_config(void)
 	EFI_STATUS efistatus;
 	UINTN numHandles = CONFIG_PARTITION_MAXCOUNT;
 	EFI_FILE_HANDLE *roots;
+	EFI_DEVICE_PATH **root_devices;
 
 	roots = (EFI_FILE_HANDLE *)mmalloc(sizeof(EFI_FILE_HANDLE) *
 					   CONFIG_PARTITION_MAXCOUNT);
@@ -34,8 +35,25 @@ BG_STATUS save_current_config(void)
 		return BG_CONFIG_ERROR;
 	}
 
-	if (EFI_ERROR(enumerate_cfg_parts(roots, &numHandles))) {
-		Print(L"Error, could not enumerate config partitions.");
+	root_devices = (EFI_DEVICE_PATH **)mmalloc(sizeof(EFI_DEVICE_PATH *) *
+						   CONFIG_PARTITION_MAXCOUNT);
+	if (!root_devices) {
+		Print(L"Error, could not allocate memory for config partition "
+		      L"device paths.\n");
+		mfree(roots);
+		return BG_CONFIG_ERROR;
+	}
+
+	if (EFI_ERROR(enumerate_cfg_parts(roots, root_devices, &numHandles))) {
+		Print(L"Error, could not enumerate config partitions.\n");
+		mfree(root_devices);
+		mfree(roots);
+		return BG_CONFIG_ERROR;
+	}
+
+	if (EFI_ERROR(filter_cfg_parts(roots, root_devices, &numHandles))) {
+		Print(L"Error, could not filter config partitions.\n");
+		mfree(root_devices);
 		mfree(roots);
 		return BG_CONFIG_ERROR;
 	}
@@ -46,6 +64,7 @@ BG_STATUS save_current_config(void)
 		      numHandles, ENV_NUM_CONFIG_PARTS);
 		/* In case of saving, this must be treated as error, to not
 		 * overwrite another partition's config file. */
+		mfree(root_devices);
 		mfree(roots);
 		return BG_CONFIG_ERROR;
 	}
@@ -57,6 +76,7 @@ BG_STATUS save_current_config(void)
 		Print(L"Error, could not open environment file on system "
 		      L"partition %d: %r\n",
 		      current_partition, efistatus);
+		mfree(root_devices);
 		mfree(roots);
 		return BG_CONFIG_ERROR;
 	}
@@ -77,6 +97,7 @@ BG_STATUS save_current_config(void)
 		Print(L"Error, could not close environment config file.\n");
 		result = BG_CONFIG_ERROR;
 	}
+	mfree(root_devices);
 	mfree(roots);
 	return result;
 }
@@ -86,6 +107,7 @@ BG_STATUS load_config(BG_LOADER_PARAMS *bglp)
 	BG_STATUS result = BG_SUCCESS;
 	UINTN numHandles = CONFIG_PARTITION_MAXCOUNT;
 	EFI_FILE_HANDLE *roots;
+	EFI_DEVICE_PATH **root_devices;
 	UINTN i;
 	int env_invalid[ENV_NUM_CONFIG_PARTS] = {0};
 
@@ -97,14 +119,32 @@ BG_STATUS load_config(BG_LOADER_PARAMS *bglp)
 		return BG_CONFIG_ERROR;
 	}
 
-	if (EFI_ERROR(enumerate_cfg_parts(roots, &numHandles))) {
-		Print(L"Error, could not enumerate config partitions.");
+	root_devices = (EFI_DEVICE_PATH **)mmalloc(sizeof(EFI_DEVICE_PATH *) *
+						   CONFIG_PARTITION_MAXCOUNT);
+	if (!root_devices) {
+		Print(L"Error, could not allocate memory for config partition "
+		      L"device paths.\n");
+		mfree(roots);
+		return BG_CONFIG_ERROR;
+	}
+
+	if (EFI_ERROR(enumerate_cfg_parts(roots, root_devices, &numHandles))) {
+		Print(L"Error, could not enumerate config partitions.\n");
+		mfree(root_devices);
+		mfree(roots);
+		return BG_CONFIG_ERROR;
+	}
+
+	if (EFI_ERROR(filter_cfg_parts(roots, root_devices, &numHandles))) {
+		Print(L"Error, could not filter config partitions.\n");
+		mfree(root_devices);
 		mfree(roots);
 		return BG_CONFIG_ERROR;
 	}
 
 	if (numHandles > ENV_NUM_CONFIG_PARTS) {
 		Print(L"Error, too many config partitions found. Aborting.\n");
+		mfree(root_devices);
 		mfree(roots);
 		return BG_CONFIG_ERROR;
 	}
@@ -223,6 +263,7 @@ BG_STATUS load_config(BG_LOADER_PARAMS *bglp)
 	Print(L" kernel: %s\n", bglp->payload_path);
 	Print(L" args: %s\n", bglp->payload_options);
 	Print(L" timeout: %d seconds\n", bglp->timeout);
+	mfree(root_devices);
 	mfree(roots);
 	return result;
 }

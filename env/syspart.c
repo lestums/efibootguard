@@ -37,7 +37,9 @@ EFI_STATUS read_cfg_file(EFI_FILE_HANDLE fh, VOID *buffer)
 	return uefi_call_wrapper(fh->Read, 3, fh, &readlen, buffer);
 }
 
-EFI_STATUS enumerate_cfg_parts(EFI_FILE_HANDLE *roots, UINTN *numHandles)
+EFI_STATUS enumerate_cfg_parts(EFI_FILE_HANDLE *roots,
+			       EFI_DEVICE_PATH **root_devices,
+			       UINTN *numHandles)
 {
 	EFI_STATUS status;
 	UINTN rootCount = 0;
@@ -57,6 +59,7 @@ EFI_STATUS enumerate_cfg_parts(EFI_FILE_HANDLE *roots, UINTN *numHandles)
 		if (status == EFI_SUCCESS) {
 			Print(L"Config file found on volume %d.\n", index);
 			roots[rootCount] = volumes[index].root;
+			root_devices[rootCount] = volumes[index].devpath;
 			rootCount++;
 			status = close_cfg_file(volumes[index].root, fh);
 			if (EFI_ERROR(status)) {
@@ -68,5 +71,62 @@ EFI_STATUS enumerate_cfg_parts(EFI_FILE_HANDLE *roots, UINTN *numHandles)
 	}
 	*numHandles = rootCount;
 	Print(L"%d config partitions detected.\n", rootCount);
+	return EFI_SUCCESS;
+}
+
+EFI_STATUS filter_cfg_parts(EFI_FILE_HANDLE *roots,
+			    EFI_DEVICE_PATH **root_devices, UINTN *numHandles)
+{
+	BOOLEAN only_envs_on_bootdevice = FALSE;
+
+	Print(L"Config filter: \n");
+	for (UINTN index = 0; index < *numHandles; index++) {
+		EFI_FILE_HANDLE fh = NULL;
+		EFI_STATUS status;
+		BG_ENVDATA env;
+
+		status = open_cfg_file(roots[index], &fh, EFI_FILE_MODE_READ);
+		if (EFI_ERROR(status)) {
+			return status;
+		}
+
+		status = read_cfg_file(fh, &env);
+		if (EFI_ERROR(status)) {
+			return status;
+		}
+
+		if (IsOnBootDevice(root_devices[index]) &&
+		    (env.status_flags & ENV_STATUS_FAILSAFE)) {
+			only_envs_on_bootdevice = TRUE;
+		};
+
+		status = close_cfg_file(roots[index], fh);
+		if (EFI_ERROR(status)) {
+			return status;
+		}
+	}
+
+	if (!only_envs_on_bootdevice) {
+		// nothing to do
+		return EFI_SUCCESS;
+	}
+
+	Print(L"Fail-Safe Mode enabled.\n");
+	UINTN index = 0;
+	do {
+		if (!IsOnBootDevice(root_devices[index])) {
+			for (UINTN j = index; j < *numHandles-1; j++) {
+				roots[j] = roots[j+1];
+				root_devices[j] = root_devices[j+1];
+			}
+			mfree(roots[*numHandles-1]);
+			mfree(root_devices[*numHandles-1]);
+			(*numHandles)--;
+			Print(L"Filtered Config #%d\n", index);
+		}
+		index++;
+	} while(index < *numHandles);
+
+	Print(L"Remaining Config Partitions: %d\n", *numHandles);
 	return EFI_SUCCESS;
 }
