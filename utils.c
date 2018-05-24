@@ -16,6 +16,29 @@
 #include <bootguard.h>
 #include <utils.h>
 
+CHAR16 *StrRStrip(CHAR16 *input, CHAR16 delim)
+{
+	CHAR16 *dst;
+	UINTN len;
+
+	len = StrLen(input);
+	dst = mmalloc((len + 1) * 2);
+	if (!dst) {
+		return NULL;
+	}
+
+	StrCpy(dst, input);
+
+	for (UINTN i = len; i > 0; i--)
+	{
+		if (dst[i * 2] == delim) {
+			dst[i * 2] = L'\0';
+			break;
+		}
+	}
+	return dst;
+}
+
 uint32_t calc_crc32(void *data, int32_t size)
 {
 	uint32_t crc;
