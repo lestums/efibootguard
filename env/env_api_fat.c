@@ -319,7 +319,8 @@ int bgenv_get(BGENV *env, char *key, uint64_t *type, void *data,
 				      USERVAR_TYPE_UINT8);
 	case EBGENV_IN_PROGRESS:
 		return bgenv_get_uint(buffer, type, data,
-				      env->data->in_progress,
+				      env->data->status_flags &
+					ENV_STATUS_IN_PROGRESS,
 				      USERVAR_TYPE_UINT8);
 	default:
 		if (!data) {
@@ -399,7 +400,16 @@ int bgenv_set(BGENV *env, char *key, uint64_t type, void *data,
 		if (val < 0) {
 			return val;
 		}
-		env->data->in_progress = val;
+		switch(val) {
+		case 1:
+			env->data->status_flags |= ENV_STATUS_IN_PROGRESS;
+			break;
+		case 0:
+			env->data->status_flags &= ~ENV_STATUS_IN_PROGRESS;
+			break;
+		default:
+			return -EINVAL;
+		}
 		break;
 	default:
 		return -EINVAL;
@@ -432,7 +442,7 @@ BGENV *bgenv_create_new(void)
 	memset(env_new->data, 0, sizeof(BG_ENVDATA));
 	/* update revision field and testing mode */
 	env_new->data->revision = new_rev;
-	env_new->data->in_progress = 1;
+	env_new->data->status_flags = ENV_STATUS_IN_PROGRESS;
 	/* set default watchdog timeout */
 	env_new->data->watchdog_timeout_sec = 30;
 

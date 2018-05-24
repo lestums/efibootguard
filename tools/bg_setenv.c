@@ -475,9 +475,12 @@ static void dump_uservars(uint8_t *udata)
 static void dump_env(BG_ENVDATA *env)
 {
 	char buffer[ENV_STRING_LENGTH];
+	bool in_progress;
+
+	in_progress = env->status_flags & ENV_STATUS_IN_PROGRESS;
 	fprintf(stdout, "Values:\n");
 	fprintf(stdout,
-		"in_progress:      %s\n",env->in_progress ? "yes" : "no");
+		"in_progress:      %s\n", in_progress ? "yes" : "no");
 	fprintf(stdout, "revision:         %u\n", env->revision);
 	fprintf(stdout,
 		"kernel:           %s\n", str16to8(buffer, env->kernelfile));

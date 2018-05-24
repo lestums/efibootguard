@@ -195,7 +195,7 @@ BG_STATUS load_config(BG_LOADER_PARAMS *bglp)
 
 	/* Test if this environment is currently 'in_progress'. If yes,
 	 * do not boot from it, instead ignore it */
-	if (env[latest_idx].in_progress == 1) {
+	if (env[latest_idx].status_flags & ENV_STATUS_IN_PROGRESS) {
 		current_partition = pre_latest_idx;
 	} else if (env[latest_idx].ustate == USTATE_TESTING) {
 		/* If it has already been booted, this indicates a failed

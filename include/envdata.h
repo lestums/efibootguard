@@ -20,6 +20,8 @@
 
 #define CONFIG_PARTITION_MAXCOUNT 64
 
+#define ENV_STATUS_IN_PROGRESS 1
+
 #define USTATE_OK 0
 #define USTATE_INSTALLED 1
 #define USTATE_TESTING 2
@@ -36,7 +38,7 @@
 struct _BG_ENVDATA {
 	uint16_t kernelfile[ENV_STRING_LENGTH];
 	uint16_t kernelparams[ENV_STRING_LENGTH];
-	uint8_t in_progress;
+	uint8_t status_flags;
 	uint8_t ustate;
 	uint16_t watchdog_timeout_sec;
 	uint32_t revision;

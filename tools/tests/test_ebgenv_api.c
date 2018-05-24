@@ -130,7 +130,8 @@ START_TEST(ebgenv_api_ebg_env_create_new)
 
 	ck_assert(((BGENV *)e.bgenv)->data == &envdata[0]);
 
-	ck_assert_int_eq(((BGENV *)e.bgenv)->data->in_progress, 1);
+	ck_assert((((BGENV *)e.bgenv)->data->status_flags &
+		  ENV_STATUS_IN_PROGRESS) != 0);
 	ck_assert_int_eq(
 		((BGENV *)e.bgenv)->data->revision, ENV_NUM_CONFIG_PARTS+1);
 
@@ -157,7 +158,8 @@ START_TEST(ebgenv_api_ebg_env_create_new)
 
 	ck_assert_int_eq(ret, 0);
 	ck_assert_int_eq(((BGENV *)e.bgenv)->data->ustate, USTATE_INSTALLED);
-	ck_assert_int_eq(((BGENV *)e.bgenv)->data->in_progress, 0);
+	ck_assert((((BGENV *)e.bgenv)->data->status_flags &
+		  ENV_STATUS_IN_PROGRESS) == 0);
 }
 END_TEST
 
