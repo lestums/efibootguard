@@ -24,6 +24,7 @@
 
 extern const unsigned long init_array_start[];
 extern const unsigned long init_array_end[];
+extern CHAR16 *boot_device_path;
 
 static EFI_STATUS probe_watchdog(EFI_LOADED_IMAGE *loaded_image,
 				 EFI_PCI_IO *pci_io, UINT16 pci_vendor_id,
@@ -122,6 +123,11 @@ EFI_STATUS efi_main(EFI_HANDLE image_handle, EFI_SYSTEM_TABLE *system_table)
 			   L"information.",
 			   status);
 	}
+
+	boot_device_path = DevicePathToStr(DevicePathFromHandle(
+					   loaded_image->DeviceHandle));
+	boot_device_path = StrRStrip(boot_device_path, L'/');
+	Print(L"Boot device: %s\n", boot_device_path);
 
 	status = get_volumes(&volumes, &volume_count);
 	if (EFI_ERROR(status)) {

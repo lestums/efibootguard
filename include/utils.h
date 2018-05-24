@@ -29,6 +29,7 @@ typedef struct _VOLUME_DESC {
 
 typedef enum { DOSFSLABEL, CUSTOMLABEL, NOLABEL } LABELMODE;
 
+BOOLEAN IsOnBootDevice(EFI_DEVICE_PATH *dp);
 CHAR16 *StrRStrip(CHAR16 *input, CHAR16 delim);
 uint32_t calc_crc32(void *data, int32_t size);
 void __noreturn error_exit(CHAR16 *message, EFI_STATUS status);

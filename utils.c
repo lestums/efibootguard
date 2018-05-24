@@ -16,6 +16,19 @@
 #include <bootguard.h>
 #include <utils.h>
 
+BOOLEAN IsOnBootDevice(EFI_DEVICE_PATH *dp)
+{
+	extern CHAR16 *boot_device_path;
+	CHAR16 *device_path;
+
+	device_path = DevicePathToStr(dp);
+	device_path = StrRStrip(device_path, L'/');
+	if (StrCmp(device_path, boot_device_path) == 0) {
+		return TRUE;
+	}
+	return FALSE;
+}
+
 CHAR16 *StrRStrip(CHAR16 *input, CHAR16 delim)
 {
 	CHAR16 *dst;
