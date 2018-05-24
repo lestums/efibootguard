@@ -21,41 +21,27 @@ static BG_ENVDATA env[ENV_NUM_CONFIG_PARTS];
 
 BG_STATUS save_current_config(void)
 {
-	BG_STATUS result = BG_SUCCESS;
+	BG_STATUS result = BG_CONFIG_ERROR;
 	EFI_STATUS efistatus;
-	UINTN numHandles = CONFIG_PARTITION_MAXCOUNT;
-	EFI_FILE_HANDLE *roots;
-	EFI_DEVICE_PATH **root_devices;
+	UINTN numHandles = volume_count;
+	UINTN *config_volumes;
 
-	roots = (EFI_FILE_HANDLE *)mmalloc(sizeof(EFI_FILE_HANDLE) *
-					   CONFIG_PARTITION_MAXCOUNT);
-	if (!roots) {
+	config_volumes = (UINTN *)mmalloc(sizeof(EFI_FILE_HANDLE) *
+					  volume_count);
+	if (!config_volumes) {
 		Print(L"Error, could not allocate memory for config partition "
-		      L"handles.\n");
-		return BG_CONFIG_ERROR;
+		      L"mapping.\n");
+		return result;
 	}
 
-	root_devices = (EFI_DEVICE_PATH **)mmalloc(sizeof(EFI_DEVICE_PATH *) *
-						   CONFIG_PARTITION_MAXCOUNT);
-	if (!root_devices) {
-		Print(L"Error, could not allocate memory for config partition "
-		      L"device paths.\n");
-		mfree(roots);
-		return BG_CONFIG_ERROR;
-	}
-
-	if (EFI_ERROR(enumerate_cfg_parts(roots, root_devices, &numHandles))) {
+	if (EFI_ERROR(enumerate_cfg_parts(config_volumes, &numHandles))) {
 		Print(L"Error, could not enumerate config partitions.\n");
-		mfree(root_devices);
-		mfree(roots);
-		return BG_CONFIG_ERROR;
+		goto scc_cleanup;
 	}
 
-	if (EFI_ERROR(filter_cfg_parts(roots, root_devices, &numHandles))) {
+	if (EFI_ERROR(filter_cfg_parts(config_volumes, &numHandles))) {
 		Print(L"Error, could not filter config partitions.\n");
-		mfree(root_devices);
-		mfree(roots);
-		return BG_CONFIG_ERROR;
+		goto scc_cleanup;
 	}
 
 	if (numHandles != ENV_NUM_CONFIG_PARTS) {
@@ -64,21 +50,18 @@ BG_STATUS save_current_config(void)
 		      numHandles, ENV_NUM_CONFIG_PARTS);
 		/* In case of saving, this must be treated as error, to not
 		 * overwrite another partition's config file. */
-		mfree(root_devices);
-		mfree(roots);
-		return BG_CONFIG_ERROR;
+		goto scc_cleanup;
 	}
 
+	VOLUME_DESC *v = &volumes[config_volumes[current_partition]];
 	EFI_FILE_HANDLE fh = NULL;
-	efistatus = open_cfg_file(roots[current_partition], &fh,
-				  EFI_FILE_MODE_WRITE | EFI_FILE_MODE_READ);
+	efistatus = open_cfg_file(v->root, &fh, EFI_FILE_MODE_WRITE |
+				  EFI_FILE_MODE_READ);
 	if (EFI_ERROR(efistatus)) {
 		Print(L"Error, could not open environment file on system "
 		      L"partition %d: %r\n",
 		      current_partition, efistatus);
-		mfree(root_devices);
-		mfree(roots);
-		return BG_CONFIG_ERROR;
+		goto scc_cleanup;
 	}
 
 	UINTN writelen = sizeof(BG_ENVDATA);
@@ -90,63 +73,50 @@ BG_STATUS save_current_config(void)
 				      (VOID *)&env[current_partition]);
 	if (EFI_ERROR(efistatus)) {
 		Print(L"Error writing environment to file: %r\n", efistatus);
-		result = BG_CONFIG_ERROR;
+		(VOID) close_cfg_file(v->root, fh);
+		goto scc_cleanup;
 	}
 
-	if (EFI_ERROR(close_cfg_file(roots[current_partition], fh))) {
+	if (EFI_ERROR(close_cfg_file(v->root, fh))) {
 		Print(L"Error, could not close environment config file.\n");
-		result = BG_CONFIG_ERROR;
+		goto scc_cleanup;
 	}
-	mfree(root_devices);
-	mfree(roots);
+
+	result = BG_SUCCESS;
+scc_cleanup:
+	mfree(config_volumes);
 	return result;
 }
 
 BG_STATUS load_config(BG_LOADER_PARAMS *bglp)
 {
-	BG_STATUS result = BG_SUCCESS;
-	UINTN numHandles = CONFIG_PARTITION_MAXCOUNT;
-	EFI_FILE_HANDLE *roots;
-	EFI_DEVICE_PATH **root_devices;
+	BG_STATUS result = BG_CONFIG_ERROR;
+	UINTN numHandles = volume_count;
+	UINTN *config_volumes;
 	UINTN i;
 	int env_invalid[ENV_NUM_CONFIG_PARTS] = {0};
 
-	roots = (EFI_FILE_HANDLE *)mmalloc(sizeof(EFI_FILE_HANDLE) *
-					   CONFIG_PARTITION_MAXCOUNT);
-	if (!roots) {
+	config_volumes = (UINTN *)mmalloc(sizeof(EFI_FILE_HANDLE) *
+					  volume_count);
+	if (!config_volumes) {
 		Print(L"Error, could not allocate memory for config partition "
-		      L"handles.\n");
-		return BG_CONFIG_ERROR;
+		      L"mapping.\n");
+		return result;
 	}
 
-	root_devices = (EFI_DEVICE_PATH **)mmalloc(sizeof(EFI_DEVICE_PATH *) *
-						   CONFIG_PARTITION_MAXCOUNT);
-	if (!root_devices) {
-		Print(L"Error, could not allocate memory for config partition "
-		      L"device paths.\n");
-		mfree(roots);
-		return BG_CONFIG_ERROR;
-	}
-
-	if (EFI_ERROR(enumerate_cfg_parts(roots, root_devices, &numHandles))) {
+	if (EFI_ERROR(enumerate_cfg_parts(config_volumes, &numHandles))) {
 		Print(L"Error, could not enumerate config partitions.\n");
-		mfree(root_devices);
-		mfree(roots);
-		return BG_CONFIG_ERROR;
+		goto lc_cleanup;
 	}
 
-	if (EFI_ERROR(filter_cfg_parts(roots, root_devices, &numHandles))) {
+	if (EFI_ERROR(filter_cfg_parts(config_volumes, &numHandles))) {
 		Print(L"Error, could not filter config partitions.\n");
-		mfree(root_devices);
-		mfree(roots);
-		return BG_CONFIG_ERROR;
+		goto lc_cleanup;
 	}
 
 	if (numHandles > ENV_NUM_CONFIG_PARTS) {
 		Print(L"Error, too many config partitions found. Aborting.\n");
-		mfree(root_devices);
-		mfree(roots);
-		return BG_CONFIG_ERROR;
+		goto lc_cleanup;
 	}
 
 	if (numHandles < ENV_NUM_CONFIG_PARTS) {
@@ -161,8 +131,9 @@ BG_STATUS load_config(BG_LOADER_PARAMS *bglp)
 	/* Load all config data */
 	for (i = 0; i < numHandles; i++) {
 		EFI_FILE_HANDLE fh = NULL;
-		if (EFI_ERROR(open_cfg_file(roots[i], &fh,
-			                    EFI_FILE_MODE_READ))) {
+		VOLUME_DESC *v = &volumes[config_volumes[i]];
+		if (EFI_ERROR(open_cfg_file(v->root, &fh,
+					    EFI_FILE_MODE_READ))) {
 			Print(L"Warning, could not open environment file on "
 			      L"config partition %d\n",
 			      i);
@@ -175,7 +146,7 @@ BG_STATUS load_config(BG_LOADER_PARAMS *bglp)
 			      L"partition %d.\n",
 			      i);
 			env_invalid[i] = 1;
-			if (EFI_ERROR(close_cfg_file(roots[i], fh))) {
+			if (EFI_ERROR(close_cfg_file(v->root, fh))) {
 				Print(L"Error, could not close environment "
 				      L"config file.\n");
 			}
@@ -198,7 +169,7 @@ BG_STATUS load_config(BG_LOADER_PARAMS *bglp)
 			result = BG_CONFIG_PARTIALLY_CORRUPTED;
 		}
 
-		if (EFI_ERROR(uefi_call_wrapper(fh->Close, 1, fh))) {
+		if (EFI_ERROR(close_cfg_file(v->root, fh))) {
 			Print(L"Error, could not close environment config "
 			      L"file.\n");
 			/* Don't abort, so we may still be able to boot a
@@ -263,8 +234,10 @@ BG_STATUS load_config(BG_LOADER_PARAMS *bglp)
 	Print(L" kernel: %s\n", bglp->payload_path);
 	Print(L" args: %s\n", bglp->payload_options);
 	Print(L" timeout: %d seconds\n", bglp->timeout);
-	mfree(root_devices);
-	mfree(roots);
+
+	result = BG_SUCCESS;
+lc_cleanup:
+	mfree(config_volumes);
 	return result;
 }
 

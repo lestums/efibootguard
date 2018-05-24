@@ -37,14 +37,12 @@ EFI_STATUS read_cfg_file(EFI_FILE_HANDLE fh, VOID *buffer)
 	return uefi_call_wrapper(fh->Read, 3, fh, &readlen, buffer);
 }
 
-EFI_STATUS enumerate_cfg_parts(EFI_FILE_HANDLE *roots,
-			       EFI_DEVICE_PATH **root_devices,
-			       UINTN *numHandles)
+EFI_STATUS enumerate_cfg_parts(UINTN *config_volumes, UINTN *numHandles)
 {
 	EFI_STATUS status;
 	UINTN rootCount = 0;
 
-	if (!roots || !numHandles) {
+	if (!config_volumes || !numHandles) {
 		Print(L"Invalid parameter in system partition enumeration.\n");
 		return EFI_INVALID_PARAMETER;
 	}
@@ -58,8 +56,7 @@ EFI_STATUS enumerate_cfg_parts(EFI_FILE_HANDLE *roots,
 				       EFI_FILE_MODE_READ);
 		if (status == EFI_SUCCESS) {
 			Print(L"Config file found on volume %d.\n", index);
-			roots[rootCount] = volumes[index].root;
-			root_devices[rootCount] = volumes[index].devpath;
+			config_volumes[rootCount] = index;
 			rootCount++;
 			status = close_cfg_file(volumes[index].root, fh);
 			if (EFI_ERROR(status)) {
@@ -74,8 +71,7 @@ EFI_STATUS enumerate_cfg_parts(EFI_FILE_HANDLE *roots,
 	return EFI_SUCCESS;
 }
 
-EFI_STATUS filter_cfg_parts(EFI_FILE_HANDLE *roots,
-			    EFI_DEVICE_PATH **root_devices, UINTN *numHandles)
+EFI_STATUS filter_cfg_parts(UINTN *config_volumes, UINTN *numHandles)
 {
 	BOOLEAN only_envs_on_bootdevice = FALSE;
 
@@ -84,8 +80,9 @@ EFI_STATUS filter_cfg_parts(EFI_FILE_HANDLE *roots,
 		EFI_FILE_HANDLE fh = NULL;
 		EFI_STATUS status;
 		BG_ENVDATA env;
+		VOLUME_DESC *v = &volumes[config_volumes[index]];
 
-		status = open_cfg_file(roots[index], &fh, EFI_FILE_MODE_READ);
+		status = open_cfg_file(v->root, &fh, EFI_FILE_MODE_READ);
 		if (EFI_ERROR(status)) {
 			return status;
 		}
@@ -95,12 +92,12 @@ EFI_STATUS filter_cfg_parts(EFI_FILE_HANDLE *roots,
 			return status;
 		}
 
-		if (IsOnBootDevice(root_devices[index]) &&
+		if (IsOnBootDevice(v->devpath) &&
 		    (env.status_flags & ENV_STATUS_FAILSAFE)) {
 			only_envs_on_bootdevice = TRUE;
 		};
 
-		status = close_cfg_file(roots[index], fh);
+		status = close_cfg_file(v->root, fh);
 		if (EFI_ERROR(status)) {
 			return status;
 		}
@@ -114,13 +111,11 @@ EFI_STATUS filter_cfg_parts(EFI_FILE_HANDLE *roots,
 	Print(L"Fail-Safe Mode enabled.\n");
 	UINTN index = 0;
 	do {
-		if (!IsOnBootDevice(root_devices[index])) {
+		VOLUME_DESC *v = &volumes[config_volumes[index]];
+		if (!IsOnBootDevice(v->devpath)) {
 			for (UINTN j = index; j < *numHandles-1; j++) {
-				roots[j] = roots[j+1];
-				root_devices[j] = root_devices[j+1];
+				config_volumes[j] = config_volumes[j+1];
 			}
-			mfree(roots[*numHandles-1]);
-			mfree(root_devices[*numHandles-1]);
 			(*numHandles)--;
 			Print(L"Filtered Config #%d\n", index);
 		}
