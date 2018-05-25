@@ -483,8 +483,10 @@ static void dump_env(BG_ENVDATA *env)
 {
 	char buffer[ENV_STRING_LENGTH];
 	bool in_progress;
+	bool failsafe;
 
 	in_progress = env->status_flags & ENV_STATUS_IN_PROGRESS;
+	failsafe = env->status_flags & ENV_STATUS_FAILSAFE;
 	fprintf(stdout, "Values:\n");
 	fprintf(stdout,
 		"in_progress:      %s\n", in_progress ? "yes" : "no");
@@ -497,7 +499,11 @@ static void dump_env(BG_ENVDATA *env)
 		"watchdog timeout: %u seconds\n", env->watchdog_timeout_sec);
 	fprintf(stdout, "ustate:           %u (%s)\n", (uint8_t)env->ustate,
 	       ustate2str(env->ustate));
-	fprintf(stdout, "\n");
+	fprintf(stdout, "flags:            ");
+	if (failsafe) {
+		fprintf(stdout, "FAILSAFE ");
+	}
+	fprintf(stdout, "\n\n");
 	fprintf(stdout, "user variables:\n");
 	dump_uservars(env->userdata);
 	fprintf(stdout, "\n\n");
