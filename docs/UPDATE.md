@@ -11,7 +11,7 @@ The structure of the environment data is as follows:
 struct _BG_ENVDATA {
     uint16_t kernelfile[ENV_STRING_LENGTH];
     uint16_t kernelparams[ENV_STRING_LENGTH];
-    uint8_t padding;
+    uint8_t status_flags;
     uint8_t ustate;
     uint16_t watchdog_timeout_sec;
     uint32_t revision;
@@ -23,8 +23,8 @@ struct _BG_ENVDATA {
 The fields have the following meaning:
 * `kernelfile`: Path to the kernel image, utf-16 encoded
 * `kernelparams`: Arguments to the kernel, utf-16 encoded
-* `padding`: Padding byte to stay compatible with the offsets of the previous
-             version.
+* `status_flags`: Register to store special environment flags. Currently only
+                  ENV_STATUS_IN_PROGRESS and ENV_STATUS_FAILSAFE are defined.
 * `ustate`: Update status (`0` OK, `1` INSTALLED, `2` TESTING, `3`: FAILED)
 * `watchdog_timeout_sec`: Number of seconds, the watchdog times out after
 * `revision`: The revision number explained above
