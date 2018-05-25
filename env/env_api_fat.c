@@ -43,6 +43,10 @@ EBGENVKEY bgenv_str2enum(char *key)
 	if (strncmp(key, "in_progress", strlen("in_progress") + 1) == 0) {
 		return EBGENV_IN_PROGRESS;
 	}
+	if (strncmp(key, "env_status_failsafe",
+		    strlen("env_status_failsafe") + 1) == 0) {
+		return EBGENV_FAILSAFE;
+	}
 	return EBGENV_UNKNOWN;
 }
 
@@ -322,6 +326,11 @@ int bgenv_get(BGENV *env, char *key, uint64_t *type, void *data,
 				      env->data->status_flags &
 					ENV_STATUS_IN_PROGRESS,
 				      USERVAR_TYPE_UINT8);
+	case EBGENV_FAILSAFE:
+		return bgenv_get_uint(buffer, type, data,
+				      env->data->status_flags &
+				        ENV_STATUS_FAILSAFE,
+				      USERVAR_TYPE_UINT8);
 	default:
 		if (!data) {
 			return 0;
@@ -407,6 +416,21 @@ int bgenv_set(BGENV *env, char *key, uint64_t type, void *data,
 		case 0:
 			env->data->status_flags &= ~ENV_STATUS_IN_PROGRESS;
 			break;
+		default:
+			return -EINVAL;
+		}
+		break;
+	case EBGENV_FAILSAFE:
+		val = bgenv_convert_to_long(value);
+		if (val < 0) {
+			return val;
+		}
+		switch(val) {
+		case 1:
+			env->data->status_flags |= ENV_STATUS_FAILSAFE;
+			break;
+		case 0:
+			env->data->status_flags &= ~ENV_STATUS_FAILSAFE;
 		default:
 			return -EINVAL;
 		}
