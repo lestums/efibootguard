@@ -45,6 +45,7 @@ static struct argp_option options_setenv[] = {
 					   "simulate a running update "
 					   "process."},
     {"version", 'V', 0, 0, "Print version"},
+    {"failsafe", 'S', "FAILSAFE", 0, "Set Fail-Safe Flag"},
     {0}};
 
 static struct argp_option options_printenv[] = {
@@ -392,6 +393,12 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 		/* too many arguments - program terminates with call to
 		 * argp_usage with non-zero return code */
 		argp_usage(state);
+		break;
+	case 'S':
+		VERBOSE(stdout, "Enabeling fail-safe mode.\n");
+		e = journal_add_action(ENV_TASK_SET,
+				       "env_status_failsafe", 0,
+				       (uint8_t *)arg, strlen(arg) + 1);
 		break;
 	default:
 		return ARGP_ERR_UNKNOWN;
